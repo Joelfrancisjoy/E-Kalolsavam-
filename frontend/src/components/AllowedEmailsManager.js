@@ -13,6 +13,7 @@ const AllowedEmailsManager = () => {
     const [singleEmail, setSingleEmail] = useState('');
     const [bulkEmails, setBulkEmails] = useState('');
     const [activeTab, setActiveTab] = useState('list');
+    const [singleEmailValidation, setSingleEmailValidation] = useState(null); // null, 'verified', 'not-registered'
 
     useEffect(() => {
         fetchAllowedEmails();
@@ -40,6 +41,20 @@ const AllowedEmailsManager = () => {
         }
     };
 
+    const handleSingleEmailChange = async (email) => {
+        setSingleEmail(email);
+        if (email.trim()) {
+            try {
+                const response = await allowedEmailService.checkEmailRegistered(email.trim());
+                setSingleEmailValidation(response.data.is_registered ? 'verified' : 'not-registered');
+            } catch (err) {
+                setSingleEmailValidation(null);
+            }
+        } else {
+            setSingleEmailValidation(null);
+        }
+    };
+
     const handleAddSingleEmail = async (e) => {
         e.preventDefault();
         if (!singleEmail.trim()) return;
@@ -48,6 +63,7 @@ const AllowedEmailsManager = () => {
             await allowedEmailService.addAllowedEmail(singleEmail.trim());
             setSuccess('Email added successfully!');
             setSingleEmail('');
+            setSingleEmailValidation(null);
             fetchAllowedEmails();
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
@@ -206,11 +222,12 @@ const AllowedEmailsManager = () => {
                     {activeTab === 'add' && (
                         <AddEmailForms
                             singleEmail={singleEmail}
-                            setSingleEmail={setSingleEmail}
+                            setSingleEmail={handleSingleEmailChange}
                             bulkEmails={bulkEmails}
                             setBulkEmails={setBulkEmails}
                             onAddSingle={handleAddSingleEmail}
                             onBulkAdd={handleBulkAddEmails}
+                            singleEmailValidation={singleEmailValidation}
                         />
                     )}
                 </div>
@@ -313,6 +330,7 @@ const AddEmailForms = ({
     setBulkEmails,
     onAddSingle,
     onBulkAdd,
+    singleEmailValidation,
 }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -333,6 +351,12 @@ const AddEmailForms = ({
                             placeholder="user@example.com"
                             required
                         />
+                        {singleEmailValidation === 'verified' && (
+                            <p className="mt-1 text-sm text-green-600">Verified ID</p>
+                        )}
+                        {singleEmailValidation === 'not-registered' && (
+                            <p className="mt-1 text-sm text-red-600">Not a Registered ID</p>
+                        )}
                     </div>
                     <button
                         type="submit"

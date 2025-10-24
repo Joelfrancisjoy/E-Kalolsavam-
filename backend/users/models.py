@@ -54,13 +54,55 @@ class User(AbstractUser):
         ('admin', 'Admin'),
         ('volunteer', 'Volunteer')
     ]
+    APPROVAL_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     phone = models.CharField(max_length=15, blank=True)
+
+    # Student-specific
     college_id_photo = models.ImageField(upload_to='college_id_photos/', blank=True, null=True)
     school = models.ForeignKey(School, on_delete=models.SET_NULL, null=True, blank=True)
     school_category_extra = models.CharField(max_length=10, blank=True, null=True)
+    # Academic class/standard for students (1-12). Used to derive LP/UP/HS/HSS section.
+    student_class = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    # Volunteer-specific
+    staff_id_photo = models.ImageField(upload_to='staff_id_photos/', blank=True, null=True)
+    # Judge-specific
+    judge_id_photo = models.ImageField(upload_to='judge_id_photos/', blank=True, null=True)
+    approval_status = models.CharField(max_length=10, choices=APPROVAL_STATUS_CHOICES, default='pending')
+    # Temporarily store the password provided during registration (encrypted).
+    # This is cleared once the user accepts it or sets a new password after approval.
+    pending_password_encrypted = models.TextField(blank=True, null=True)
+    # Require user to set a new password on next login (used for temp-password accounts)
+    must_reset_password = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.username} ({self.role})"
+
+    @property
+    def section(self):
+        """Derive LP/UP/HS/HSS from student_class.
+        LP: 1-4, UP: 5-7, HS: 8-10, HSS: 11-12. Returns None if unknown."""
+        try:
+            cls = int(self.student_class) if self.student_class is not None else None
+        except Exception:
+            cls = None
+        if cls is None:
+            return None
+        if 1 <= cls <= 4:
+            return 'LP'
+        if 5 <= cls <= 7:
+            return 'UP'
+        if 8 <= cls <= 10:
+            return 'HS'
+        if 11 <= cls <= 12:
+            return 'HSS'
+        return None

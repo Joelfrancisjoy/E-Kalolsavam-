@@ -28,6 +28,8 @@ class VolunteerAssignment(models.Model):
     assigned_at = models.DateTimeField(auto_now_add=True)
     checked_in = models.BooleanField(default=False)
     checked_out = models.BooleanField(default=False)
+    check_in_time = models.DateTimeField(blank=True, null=True)
+    check_out_time = models.DateTimeField(blank=True, null=True)
     
     class Meta:
         unique_together = ('volunteer', 'shift')

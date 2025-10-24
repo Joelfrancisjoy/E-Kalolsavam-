@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { GoogleLogin } from '@react-oauth/google';
 import axios from 'axios';
+import EmailValidationChecker from '../components/EmailValidationChecker';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -12,29 +13,36 @@ const Login = () => {
     username: '',
     email: '',
     password: '',
+    password_confirm: '',
     first_name: '',
     last_name: '',
     role: 'student',
     phone: ''
   });
   const [collegeIdFile, setCollegeIdFile] = useState(null);
+  const [staffIdFile, setStaffIdFile] = useState(null);
   const [schools, setSchools] = useState([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState('');
   const [schoolCategoryExtra, setSchoolCategoryExtra] = useState('');
   const [error, setError] = useState('');
+  const [judgeIdFile, setJudgeIdFile] = useState(null);
+  const [emailValidForGoogle, setEmailValidForGoogle] = useState(null);
+  const [usernameAvailability, setUsernameAvailability] = useState(null); // null | true | false
+  const [usernameCheckMsg, setUsernameCheckMsg] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({}); // per-field backend validation errors
 
-  // Important: when user reaches login page, clear any prior auth tokens.
-  // This enforces re-authentication if they navigate back to /login.
+  // Do not revoke existing tokens on visiting the login page.
+  // Keeping tokens allows users to navigate here without being logged out unintentionally.
   useEffect(() => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    // Intentionally left blank
   }, []);
 
   // Load schools for registration
   useEffect(() => {
     if (!isLogin) {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
       axios
-        .get(`${process.env.REACT_APP_API_URL}/api/auth/schools/`)
+        .get(`${apiUrl}/api/auth/schools/`)
         .then((res) => setSchools(res.data))
         .catch(() => setSchools([]));
     }
@@ -45,20 +53,73 @@ const Login = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+    if (e.target.name === 'username' && !isLogin) {
+      debouncedCheckUsername(e.target.value);
+    }
   };
+
+  // Debounced username availability check
+  const debouncedCheckUsername = (() => {
+    let t;
+    return (val) => {
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        const username = (val || '').trim();
+        if (!username) {
+          setUsernameAvailability(null);
+          setUsernameCheckMsg('');
+          return;
+        }
+        try {
+          const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+          const res = await axios.get(`${apiUrl}/api/auth/usernames/exists/`, { params: { username } });
+          const exists = !!res.data?.exists;
+          setUsernameAvailability(!exists);
+          setUsernameCheckMsg(exists ? 'Exsisting Username' : '');
+        } catch (_) {
+          setUsernameAvailability(null);
+          setUsernameCheckMsg('');
+        }
+      }, 350);
+    };
+  })();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
 
     try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
       const endpoint = isLogin ? '/api/auth/login/' : '/api/auth/register/';
 
       let response;
       if (isLogin) {
         const payload = { username: formData.username, password: formData.password };
-        response = await axios.post(`${process.env.REACT_APP_API_URL}${endpoint}`, payload);
+        response = await axios.post(`${apiUrl}${endpoint}`, payload);
       } else {
+        // Registration: validate password confirmation (not required for judge)
+        if (formData.role !== 'judge') {
+          if (formData.password !== formData.password_confirm) {
+            setError('Passwords do not match');
+            return;
+          }
+        }
+
+        // Block if email already exists (EmailValidationChecker sets false when existing)
+        if (emailValidForGoogle === false) {
+          setError('Exsisting Email ID');
+          return;
+        }
+
+        // Block if username is taken (judge can skip username/password on form)
+        if (formData.role !== 'judge') {
+          if (usernameAvailability === false) {
+            setError('Exsisting Username');
+            return;
+          }
+        }
+
         // Registration: role-based multipart when student
         if (formData.role === 'student') {
           if (!collegeIdFile) {
@@ -87,53 +148,177 @@ const Login = () => {
             fd.append('school_category_extra', '');
           }
 
-          response = await axios.post(`${process.env.REACT_APP_API_URL}${endpoint}`, fd, {
+          response = await axios.post(`${apiUrl}${endpoint}`, fd, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+        } else if (formData.role === 'volunteer') {
+          // Volunteer registration: require JPEG staff ID and multipart
+          if (!staffIdFile) {
+            setError('Staff ID (JPEG) is required for volunteer registration');
+            return;
+          }
+          const fd = new FormData();
+          fd.append('username', formData.username);
+          fd.append('email', formData.email);
+          fd.append('password', formData.password);
+          fd.append('password_confirm', formData.password);
+          fd.append('first_name', formData.first_name);
+          fd.append('last_name', formData.last_name);
+          fd.append('phone', formData.phone);
+          fd.append('role', 'volunteer');
+          fd.append('staff_id_photo', staffIdFile);
+          response = await axios.post(`${apiUrl}${endpoint}`, fd, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
         } else {
-          // Non-student registration: JSON
-          const payload = {
-            ...formData,
-            password_confirm: formData.password,
-            role: formData.role,
-          };
-          response = await axios.post(`${process.env.REACT_APP_API_URL}${endpoint}`, payload);
+          // Judge registration: multipart with Photo ID; username/password optional per backend
+          if (!judgeIdFile) {
+            setError('Photo ID (JPEG/PNG) is required for judge registration');
+            return;
+          }
+          // Basic phone normalization/validation before submit (backend validates strictly too)
+          const digits = String(formData.phone || '').replace(/\D/g, '');
+          if (digits.length !== 10) {
+            setError('Enter a valid 10-digit phone number');
+            return;
+          }
+          if (!/^[789]/.test(digits)) {
+            setError('Phone number must start with 7, 8, or 9');
+            return;
+          }
+          if (!/^[^@]+@gmail\.com$/i.test(formData.email || '')) {
+            setError('Use a valid Gmail address (e.g., name@gmail.com)');
+            return;
+          }
+          const fd = new FormData();
+          if (formData.username) fd.append('username', formData.username);
+          fd.append('email', (formData.email || '').toLowerCase());
+          // Backend ignores judge passwords; send empty safely
+          fd.append('password', formData.password || '');
+          fd.append('password_confirm', formData.password || '');
+          fd.append('first_name', formData.first_name);
+          fd.append('last_name', formData.last_name);
+          fd.append('phone', digits);
+          fd.append('role', 'judge');
+          fd.append('judge_id_photo', judgeIdFile);
+          response = await axios.post(`${apiUrl}${endpoint}`, fd, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
         }
       }
 
+      // For judge registration, backend returns message without tokens
+      if (!isLogin && formData.role === 'judge') {
+        setError('Registration submitted. Await admin approval.');
+        return;
+      }
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
-      navigate('/dashboard', { replace: true });
+      try { localStorage.setItem('last_login_payload', JSON.stringify(response.data || {})); } catch (e) {}
+
+      // Special handling for cenadmin or joelfrancisjoy@gmail.com - redirect to E-kalolsavam dashboard (admin)
+      const user = response.data.user;
+      if (user.username === 'cenadmin' || user.email === 'joelfrancisjoy@gmail.com') {
+        navigate('/admin', { replace: true });
+        return;
+      }
+
+      // Redirect based on user role
+      const userRole = user.role;
+      if (userRole === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (userRole === 'judge') {
+        navigate('/judge', { replace: true });
+      } else if (userRole === 'volunteer') {
+        // Check if volunteer is approved
+        if (user.approval_status === 'approved') {
+          navigate('/volunteer', { replace: true });
+        } else {
+          setError('Your volunteer account is pending approval. Please contact the administrator.');
+          return;
+        }
+      } else if (userRole === 'student') {
+        // Check if student is blacklisted
+        if (user.approval_status === 'rejected') {
+          setError('Your account has been blacklisted. Please contact the administrator.');
+          return;
+        }
+        navigate('/dashboard', { replace: true });
+      } else {
+        // Default to role selection dashboard for others
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       const apiError = err.response?.data;
-      setError(
+      // Capture field-level errors if present
+      if (apiError && typeof apiError === 'object' && !Array.isArray(apiError)) {
+        setFieldErrors(apiError || {});
+      }
+      const msg =
         typeof apiError === 'string'
           ? apiError
-          : apiError?.error || apiError?.detail || 'An error occurred'
-      );
+          : apiError?.error || apiError?.detail || 'An error occurred';
+      // Map Unauthorized Login to popup-like message
+      if (msg === 'Unauthorized Login') {
+        alert('Unauthorized Login');
+      }
+      setError(msg);
     }
   };
 
   const handleGoogleSuccess = async (response) => {
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/google/`, {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const res = await axios.post(`${apiUrl}/api/auth/google/`, {
         token: response.credential,
       });
 
       localStorage.setItem('access_token', res.data.access);
       localStorage.setItem('refresh_token', res.data.refresh);
+      try { localStorage.setItem('last_login_payload', JSON.stringify(res.data || {})); } catch (e) {}
 
-      // Replace history so back button doesn't return to login
-      navigate('/dashboard', { replace: true });
+      // Special handling for cenadmin or joelfrancisjoy@gmail.com - redirect to E-kalolsavam dashboard (admin)
+      const user = res.data.user;
+      if (user.username === 'cenadmin' || user.email === 'joelfrancisjoy@gmail.com') {
+        navigate('/admin', { replace: true });
+        return;
+      }
+
+      // Redirect based on user role
+      const userRole = user.role;
+      if (userRole === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (userRole === 'judge') {
+        navigate('/judge', { replace: true });
+      } else if (userRole === 'volunteer') {
+        // Check if volunteer is approved
+        if (user.approval_status === 'approved') {
+          navigate('/volunteer', { replace: true });
+        } else {
+          setError('Your volunteer account is pending approval. Please contact the administrator.');
+          return;
+        }
+      } else if (userRole === 'student') {
+        // Check if student is blacklisted
+        if (user.approval_status === 'rejected') {
+          setError('Your account has been blacklisted. Please contact the administrator.');
+          return;
+        }
+        navigate('/dashboard', { replace: true });
+      } else {
+        // Default to role selection dashboard for others
+        navigate('/dashboard', { replace: true });
+      }
     } catch (error) {
-      console.error('Login failed:', error?.response?.data || error.message);
-      setError(error?.response?.data?.error || 'Google login failed');
+      console.error('Google login failed:', error?.response?.data || error.message);
+      const errorMessage = error?.response?.data?.error || error?.response?.data?.detail || 'Google login failed. Please try again.';
+      setError(errorMessage);
     }
   };
 
   const handleGoogleFailure = (error) => {
     console.error('Google login failed:', error);
-    setError('Google login failed');
+    setError('Google login failed. Please try again or contact support if the issue persists.');
   };
 
   return (
@@ -260,6 +445,9 @@ const Login = () => {
                       required={!isLogin}
                       placeholder="Enter first name"
                     />
+                    {fieldErrors?.first_name && (
+                      <p className="mt-1 text-sm text-red-600">{String(fieldErrors.first_name)}</p>
+                    )}
                   </div>
 
                   <div>
@@ -275,6 +463,9 @@ const Login = () => {
                       required={!isLogin}
                       placeholder="Enter last name"
                     />
+                    {fieldErrors?.last_name && (
+                      <p className="mt-1 text-sm text-red-600">{String(fieldErrors.last_name)}</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -294,6 +485,13 @@ const Login = () => {
                       required={!isLogin}
                       placeholder="Enter your email"
                     />
+                    <EmailValidationChecker
+                      email={formData.email}
+                      onValidationChange={setEmailValidForGoogle}
+                    />
+                    {fieldErrors?.email && (
+                      <p className="mt-1 text-sm text-red-600">{String(fieldErrors.email)}</p>
+                    )}
                   </div>
 
                   <div>
@@ -309,6 +507,9 @@ const Login = () => {
                       placeholder="Enter phone number"
                       required
                     />
+                    {fieldErrors?.phone && (
+                      <p className="mt-1 text-sm text-red-600">{String(fieldErrors.phone)}</p>
+                    )}
                   </div>
 
                   <div>
@@ -326,6 +527,12 @@ const Login = () => {
                           setSelectedSchoolId('');
                           setSchoolCategoryExtra('');
                         }
+                        if (e.target.value !== 'volunteer') {
+                          setStaffIdFile(null);
+                        }
+                        if (e.target.value !== 'judge') {
+                          setJudgeIdFile(null);
+                        }
                       }}
                       className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 bg-amber-50/50 focus:bg-white text-amber-900"
                     >
@@ -333,6 +540,9 @@ const Login = () => {
                       <option value="judge">Judge</option>
                       <option value="volunteer">Volunteer</option>
                     </select>
+                    {fieldErrors?.role && (
+                      <p className="mt-1 text-sm text-red-600">{String(fieldErrors.role)}</p>
+                    )}
                   </div>
 
                   {formData.role === 'student' && (
@@ -375,6 +585,9 @@ const Login = () => {
                             <option value="HS">HS</option>
                             <option value="HSS">HSS</option>
                           </select>
+                          {fieldErrors?.school_category_extra && (
+                            <p className="mt-1 text-sm text-red-600">{String(fieldErrors.school_category_extra)}</p>
+                          )}
                         </div>
                       )}
 
@@ -392,11 +605,61 @@ const Login = () => {
                           required
                         />
                         <p className="text-xs text-amber-600 mt-1">Upload a clear photo of your college ID. Only .jpg or .jpeg allowed.</p>
+                        {fieldErrors?.college_id_photo && (
+                          <p className="mt-1 text-sm text-red-600">{String(fieldErrors.college_id_photo)}</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {formData.role === 'volunteer' && (
+                    <>
+                      {/* Staff ID (JPEG only) */}
+                      <div>
+                        <label className="block text-sm font-semibold text-amber-800 mb-2">Staff ID (JPEG)</label>
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,image/jpeg"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            setStaffIdFile(file || null);
+                          }}
+                          className="w-full"
+                          required
+                        />
+                        <p className="text-xs text-amber-600 mt-1">Upload a clear photo of your staff ID. Only .jpg or .jpeg allowed.</p>
+                        {fieldErrors?.staff_id_photo && (
+                          <p className="mt-1 text-sm text-red-600">{String(fieldErrors.staff_id_photo)}</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {formData.role === 'judge' && (
+                    <>
+                      {/* Judge Photo ID (JPEG only) */}
+                      <div>
+                        <label className="block text-sm font-semibold text-amber-800 mb-2">Photo ID (JPEG)</label>
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,image/jpeg,image/png"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            setJudgeIdFile(file || null);
+                          }}
+                          className="w-full"
+                          required
+                        />
+                        <p className="text-xs text-amber-600 mt-1">Upload a clear photo of your ID. Only .jpg or .jpeg allowed.</p>
+                        {fieldErrors?.judge_id_photo && (
+                          <p className="mt-1 text-sm text-red-600">{String(fieldErrors.judge_id_photo)}</p>
+                        )}
                       </div>
                     </>
                   )}
                 </>
               )}
+
 
               <div>
                 <label className="block text-sm font-semibold text-amber-800 mb-2">
@@ -408,9 +671,15 @@ const Login = () => {
                   value={formData.username}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 bg-amber-50/50 focus:bg-white text-amber-900 placeholder-amber-400"
-                  required
+                  required={isLogin || formData.role !== 'judge'}
                   placeholder="Enter your username"
                 />
+                {!isLogin && usernameCheckMsg && (
+                  <p className="mt-1 text-sm text-red-600">{usernameCheckMsg}</p>
+                )}
+                {fieldErrors?.username && (
+                  <p className="mt-1 text-sm text-red-600">{String(fieldErrors.username)}</p>
+                )}
               </div>
 
               <div>
@@ -423,10 +692,33 @@ const Login = () => {
                   value={formData.password}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 bg-amber-50/50 focus:bg-white text-amber-900 placeholder-amber-400"
-                  required
+                  required={isLogin || formData.role !== 'judge'}
                   placeholder="Enter your password"
                 />
+                {fieldErrors?.password && (
+                  <p className="mt-1 text-sm text-red-600">{String(fieldErrors.password)}</p>
+                )}
               </div>
+
+              {!isLogin && (
+                <div>
+                  <label className="block text-sm font-semibold text-amber-800 mb-2">
+                    Confirm Password
+                  </label>
+                  <input
+                    type="password"
+                    name="password_confirm"
+                    value={formData.password_confirm}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 bg-amber-50/50 focus:bg-white text-amber-900 placeholder-amber-400"
+                    required={!isLogin}
+                    placeholder="Confirm your password"
+                  />
+                  {fieldErrors?.password_confirm && (
+                    <p className="mt-1 text-sm text-red-600">{String(fieldErrors.password_confirm)}</p>
+                  )}
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -436,32 +728,44 @@ const Login = () => {
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="mt-8">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t-2 border-amber-200"></div>
+            {/* Google Login, only if provider is configured */}
+            {process.env.REACT_APP_GOOGLE_CLIENT_ID ? (
+              <div className="mt-8">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t-2 border-amber-200"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-4 bg-white text-orange-600 font-semibold">
+                      Or continue with
+                    </span>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-orange-600 font-semibold">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
 
-              <div className="mt-6 flex justify-center">
-                <div className="w-full max-w-xs">
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={handleGoogleFailure}
-                    useOneTap
-                    theme="outline"
-                    size="large"
-                    width="100%"
-                  />
+                <div className="mt-6 flex justify-center">
+                  <div className="w-full max-w-xs">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={handleGoogleFailure}
+                      useOneTap
+                      theme="outline"
+                      size="large"
+                      width="100%"
+                    />
+                  </div>
+                </div>
+
+                {/* Google Login Info */}
+                <div className="mt-4 text-center">
+                  <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                    <svg className="w-4 h-4 inline mr-1 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    Sign in with your Google account to get started quickly.
+                  </p>
                 </div>
               </div>
-            </div>
+            ) : null}
 
             {/* Toggle Login/Signup */}
             <div className="mt-8 text-center">
@@ -484,7 +788,7 @@ const Login = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
