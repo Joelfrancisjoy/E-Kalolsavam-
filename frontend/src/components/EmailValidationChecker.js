@@ -21,24 +21,32 @@ const EmailValidationChecker = ({ email, onValidationChange }) => {
   const checkEmailAllowed = async (emailToCheck) => {
     const value = (emailToCheck || '').trim().toLowerCase();
 
-    // Basic format check
     const atIndex = value.indexOf('@');
     if (atIndex === -1 || !value.endsWith('@gmail.com')) {
       setIsAllowed(false);
-      setError('Please enter a valid Gmail address (e.g., name@gmail.com)');
+      setError('Please provide a valid Gmail address with your real name (e.g., firstname.lastname@gmail.com).');
       if (onValidationChange) onValidationChange(false);
       return;
     }
 
     const local = value.split('@')[0];
-    // Reject local-parts with obvious patterns like long repeats or very low variety
-    const hasLongRepeat = /(.)\1{2,}/.test(local); // aaa, zzz, etc.
+    const hasLongRepeat = /(.)\1{2,}/.test(local);
     const uniqueChars = new Set(local.split('')).size;
-    const lowVariety = uniqueChars <= 2 && local.length >= 6; // zzzxxx, aaaaaa
+    const lowVariety = uniqueChars <= 2 && local.length >= 6;
+    const blockedLocals = ['gmail', 'email', 'user', 'admin', 'test', 'abcd', 'wxyz', 'qwerty'];
+    const hasVowel = /[aeiou]/.test(local);
+    const letters = (local.match(/[a-z]/g) || []).length;
+    let looksRandomConsonants = false;
+    if (letters >= 8) {
+      const vowels = (local.match(/[aeiou]/g) || []).length;
+      if (vowels / Math.max(1, letters) < 0.25 && local.indexOf('.') === -1 && local.indexOf('_') === -1 && local.indexOf('-') === -1) {
+        looksRandomConsonants = true;
+      }
+    }
 
-    if (!local || hasLongRepeat || lowVariety) {
+    if (!local || hasLongRepeat || lowVariety || blockedLocals.includes(local) || !hasVowel || looksRandomConsonants) {
       setIsAllowed(false);
-      setError('Invalid Email ID');
+      setError('Please provide a valid Gmail address with your real name (e.g., firstname.lastname@gmail.com).');
       if (onValidationChange) onValidationChange(false);
       return;
     }

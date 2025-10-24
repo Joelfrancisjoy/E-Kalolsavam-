@@ -30,6 +30,9 @@ const Login = () => {
   const [usernameAvailability, setUsernameAvailability] = useState(null); // null | true | false
   const [usernameCheckMsg, setUsernameCheckMsg] = useState('');
   const [fieldErrors, setFieldErrors] = useState({}); // per-field backend validation errors
+  const [emailWarning, setEmailWarning] = useState('');
+  const [loginEmailWarning, setLoginEmailWarning] = useState('');
+  const [phoneWarning, setPhoneWarning] = useState('');
 
   // Do not revoke existing tokens on visiting the login page.
   // Keeping tokens allows users to navigate here without being logged out unintentionally.
@@ -53,8 +56,19 @@ const Login = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
-    if (e.target.name === 'username' && !isLogin) {
-      debouncedCheckUsername(e.target.value);
+    if (e.target.name === 'username') {
+      if (!isLogin) {
+        debouncedCheckUsername(e.target.value);
+      } else {
+        const v = e.target.value || '';
+        if (v.includes('@')) {
+          setLoginEmailWarning(isLegitimateGmail(v) ? '' : 'Please provide a valid Gmail address with your real name (e.g., firstname.lastname@gmail.com).');
+        } else {
+          setLoginEmailWarning('');
+        }
+      }
+    } else if (e.target.name === 'phone') {
+      validatePhoneNow(e.target.value);
     }
   };
 
@@ -84,12 +98,93 @@ const Login = () => {
     };
   })();
 
+  const isLegitimateGmail = (raw) => {
+    const value = String(raw || '').trim().toLowerCase();
+    if (!value || !value.endsWith('@gmail.com') || value.indexOf('@') === -1) {
+      return false;
+    }
+    const local = value.split('@')[0] || '';
+    if (!local) return false;
+    if (/(.)\1{2,}/.test(local)) return false;
+    const uniqueChars = new Set(local.split('')).size;
+    if (uniqueChars <= 2 && local.length >= 6) return false;
+    const blockedLocals = ['gmail', 'email', 'user', 'admin', 'test', 'abcd', 'wxyz', 'qwerty'];
+    if (blockedLocals.includes(local)) return false;
+    if (!/[aeiou]/.test(local)) return false;
+    const letters = (local.match(/[a-z]/g) || []).length;
+    if (letters >= 8) {
+      const vowels = (local.match(/[aeiou]/g) || []).length;
+      if (vowels / Math.max(1, letters) < 0.25 && local.indexOf('.') === -1 && local.indexOf('_') === -1 && local.indexOf('-') === -1) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const validateEmailNow = (raw) => {
+    const ok = isLegitimateGmail(raw);
+    setEmailWarning(ok ? '' : 'Please provide a valid Gmail address with your real name (e.g., firstname.lastname@gmail.com).');
+  };
+
+  const debouncedValidateEmail = (() => {
+    let t;
+    return (val) => {
+      clearTimeout(t);
+      t = setTimeout(() => validateEmailNow(val), 400);
+    };
+  })();
+
+  const isValidPhone = (raw) => {
+    const value = String(raw || '');
+    if (/[^0-9]/.test(value)) return false; // only digits allowed
+    if (value.length !== 10) return false; // exactly 10 digits
+    if (!/^[789]/.test(value)) return false; // must start with 7, 8, or 9
+    if (value === '0000000000') return false; // all zeros
+    if (/(\d)\1{4,}/.test(value)) return false; // long repetitive sequence like 44444 or 22222
+    return true;
+  };
+
+  const validatePhoneNow = (raw) => {
+    const value = String(raw || '');
+    if (!value) {
+      setPhoneWarning('');
+      return;
+    }
+    if (/[^0-9]/.test(value)) {
+      setPhoneWarning('Phone number must contain only digits (0-9), no letters, spaces, or symbols.');
+      return;
+    }
+    if (value.length !== 10) {
+      setPhoneWarning('Phone number must be exactly 10 digits.');
+      return;
+    }
+    if (!/^[789]/.test(value)) {
+      setPhoneWarning('Phone number must start with 9, 8, or 7.');
+      return;
+    }
+    if (value === '0000000000' || /(\d)\1{4,}/.test(value)) {
+      setPhoneWarning('Phone number has an invalid repetitive sequence.');
+      return;
+    }
+    setPhoneWarning('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setFieldErrors({});
 
     try {
+      if (isLogin) {
+        const maybeEmail = String(formData.username || '');
+        if (maybeEmail.includes('@')) {
+          const ok = isLegitimateGmail(maybeEmail);
+          if (!ok) {
+            setError('Please provide a valid Gmail address with your real name (e.g., firstname.lastname@gmail.com).');
+            return;
+          }
+        }
+      }
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
       const endpoint = isLogin ? '/api/auth/login/' : '/api/auth/register/';
 
@@ -106,6 +201,11 @@ const Login = () => {
           }
         }
 
+        if (emailWarning) {
+          setError(emailWarning);
+          return;
+        }
+
         // Block if email already exists (EmailValidationChecker sets false when existing)
         if (emailValidForGoogle === false) {
           setError('Exsisting Email ID');
@@ -120,6 +220,14 @@ const Login = () => {
           }
         }
 
+        // Validate phone for all roles before proceeding
+        const rawPhone = String(formData.phone || '').trim();
+        if (!isValidPhone(rawPhone)) {
+          setError('Please enter a valid 10-digit phone number starting with 9, 8, or 7, digits only.');
+          return;
+        }
+        const phoneDigits = rawPhone.replace(/\D/g, '');
+
         // Registration: role-based multipart when student
         if (formData.role === 'student') {
           if (!collegeIdFile) {
@@ -133,12 +241,12 @@ const Login = () => {
 
           const fd = new FormData();
           fd.append('username', formData.username);
-          fd.append('email', formData.email);
+          fd.append('email', (formData.email || '').toLowerCase());
           fd.append('password', formData.password);
           fd.append('password_confirm', formData.password);
           fd.append('first_name', formData.first_name);
           fd.append('last_name', formData.last_name);
-          fd.append('phone', formData.phone);
+          fd.append('phone', phoneDigits);
           fd.append('role', 'student');
           fd.append('college_id_photo', collegeIdFile);
           fd.append('school', selectedSchoolId);
@@ -159,12 +267,12 @@ const Login = () => {
           }
           const fd = new FormData();
           fd.append('username', formData.username);
-          fd.append('email', formData.email);
+          fd.append('email', (formData.email || '').toLowerCase());
           fd.append('password', formData.password);
           fd.append('password_confirm', formData.password);
           fd.append('first_name', formData.first_name);
           fd.append('last_name', formData.last_name);
-          fd.append('phone', formData.phone);
+          fd.append('phone', phoneDigits);
           fd.append('role', 'volunteer');
           fd.append('staff_id_photo', staffIdFile);
           response = await axios.post(`${apiUrl}${endpoint}`, fd, {
@@ -176,18 +284,8 @@ const Login = () => {
             setError('Photo ID (JPEG/PNG) is required for judge registration');
             return;
           }
-          // Basic phone normalization/validation before submit (backend validates strictly too)
-          const digits = String(formData.phone || '').replace(/\D/g, '');
-          if (digits.length !== 10) {
-            setError('Enter a valid 10-digit phone number');
-            return;
-          }
-          if (!/^[789]/.test(digits)) {
-            setError('Phone number must start with 7, 8, or 9');
-            return;
-          }
-          if (!/^[^@]+@gmail\.com$/i.test(formData.email || '')) {
-            setError('Use a valid Gmail address (e.g., name@gmail.com)');
+          if (!isLegitimateGmail(formData.email)) {
+            setError('Please provide a valid Gmail address with your real name (e.g., firstname.lastname@gmail.com).');
             return;
           }
           const fd = new FormData();
@@ -198,7 +296,7 @@ const Login = () => {
           fd.append('password_confirm', formData.password || '');
           fd.append('first_name', formData.first_name);
           fd.append('last_name', formData.last_name);
-          fd.append('phone', digits);
+          fd.append('phone', phoneDigits);
           fd.append('role', 'judge');
           fd.append('judge_id_photo', judgeIdFile);
           response = await axios.post(`${apiUrl}${endpoint}`, fd, {
@@ -480,15 +578,26 @@ const Login = () => {
                       type="email"
                       name="email"
                       value={formData.email}
-                      onChange={handleInputChange}
+                      onChange={(e) => { handleInputChange(e); debouncedValidateEmail(e.target.value); }}
+                      onBlur={() => validateEmailNow(formData.email)}
                       className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 bg-amber-50/50 focus:bg-white text-amber-900 placeholder-amber-400"
                       required={!isLogin}
                       placeholder="Enter your email"
                     />
-                    <EmailValidationChecker
-                      email={formData.email}
-                      onValidationChange={setEmailValidForGoogle}
-                    />
+                    {emailWarning && (
+                      <div className="mt-2 inline-flex items-center px-3 py-2 text-sm bg-amber-50 text-amber-800 border border-amber-200 rounded-lg shadow-sm">
+                        <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {emailWarning}
+                      </div>
+                    )}
+                    {!emailWarning && (
+                      <EmailValidationChecker
+                        email={formData.email}
+                        onValidationChange={setEmailValidForGoogle}
+                      />
+                    )}
                     {fieldErrors?.email && (
                       <p className="mt-1 text-sm text-red-600">{String(fieldErrors.email)}</p>
                     )}
@@ -503,10 +612,22 @@ const Login = () => {
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      onBlur={() => validatePhoneNow(formData.phone)}
+                      maxLength={10}
                       className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all duration-200 bg-amber-50/50 focus:bg-white text-amber-900 placeholder-amber-400"
                       placeholder="Enter phone number"
                       required
                     />
+                    {phoneWarning && (
+                      <div className="mt-2 inline-flex items-center px-3 py-2 text-sm bg-amber-50 text-amber-800 border border-amber-200 rounded-lg shadow-sm">
+                        <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {phoneWarning}
+                      </div>
+                    )}
                     {fieldErrors?.phone && (
                       <p className="mt-1 text-sm text-red-600">{String(fieldErrors.phone)}</p>
                     )}
@@ -674,6 +795,9 @@ const Login = () => {
                   required={isLogin || formData.role !== 'judge'}
                   placeholder="Enter your username"
                 />
+                {isLogin && loginEmailWarning && (
+                  <p className="mt-1 text-sm text-red-600">{loginEmailWarning}</p>
+                )}
                 {!isLogin && usernameCheckMsg && (
                   <p className="mt-1 text-sm text-red-600">{usernameCheckMsg}</p>
                 )}

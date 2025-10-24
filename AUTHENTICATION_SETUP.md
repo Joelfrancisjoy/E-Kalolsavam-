@@ -65,8 +65,15 @@ pip install -r requirements.txt
 Create a `.env` file in the `frontend/` directory:
 
 ```env
+# API Configuration
 REACT_APP_API_URL=http://localhost:8000
+
+# Google OAuth2 Configuration
+# Use the SAME Client ID from backend SOCIAL_AUTH_GOOGLE_OAUTH2_KEY
+REACT_APP_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 ```
+
+**IMPORTANT**: The `REACT_APP_GOOGLE_CLIENT_ID` must be the **exact same value** as `SOCIAL_AUTH_GOOGLE_OAUTH2_KEY` in the backend `.env` file.
 
 ### 2. Install Dependencies
 ```bash

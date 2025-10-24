@@ -55,6 +55,39 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         # Reject patterns like zzzzzz@gmail.com (same char >=5)
         return bool(re.match(r'^(.)\1{4,}$', local))
 
+    def _is_legitimate_gmail(self, email: str) -> bool:
+        """Heuristic check for legitimate Gmail addresses with real names."""
+        if not email or '@' not in email:
+            return False
+        email = email.strip().lower()
+        if not email.endswith('@gmail.com'):
+            return False
+        try:
+            local = email.split('@')[0]
+        except Exception:
+            return False
+        if not local:
+            return False
+        # Reject long repeats like aaaaa, zzzzz, etc. (3+ repeats in a row)
+        if re.search(r'(.)\1{2,}', local):
+            return False
+        # Very low variety for long locals
+        if len(set(local)) <= 2 and len(local) >= 6:
+            return False
+        # Obvious placeholders
+        if local in {'gmail', 'email', 'user', 'admin', 'test', 'abcd', 'wxyz', 'qwerty'}:
+            return False
+        # Must contain at least one vowel
+        if not re.search(r'[aeiou]', local):
+            return False
+        # Reject likely random consonant strings with very low vowel ratio and no separators
+        letters = len(re.findall(r'[a-z]', local))
+        if letters >= 8:
+            vowels = len(re.findall(r'[aeiou]', local))
+            if (vowels / max(1, letters)) < 0.25 and all(ch not in local for ch in ['.', '_', '-']):
+                return False
+        return True
+
     def _validate_phone(self, phone: str):
         if phone is None:
             raise serializers.ValidationError('Phone number is required')
@@ -147,11 +180,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate_email(self, value: str) -> str:
         # Normalize and basic sanity checks
         email = (value or '').strip().lower()
-        # Must be a gmail address
-        if '@' not in email or not email.endswith('@gmail.com'):
-            raise serializers.ValidationError('Please enter a valid Gmail address (e.g., name@gmail.com)')
-        if self._is_probably_fake_email(email):
-            raise serializers.ValidationError('Invalid Email ID')
+        # Enforce legitimate Gmail with real-name heuristics
+        if not self._is_legitimate_gmail(email):
+            raise serializers.ValidationError('Please provide a valid Gmail address with your real name (e.g., firstname.lastname@gmail.com).')
         # Uniqueness check
         if User.objects.filter(email__iexact=email).exclude(pk=getattr(self.instance, 'pk', None)).exists():
             raise serializers.ValidationError('Exsisting Email ID')
