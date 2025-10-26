@@ -312,11 +312,11 @@ const Login = () => {
       }
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
-      try { localStorage.setItem('last_login_payload', JSON.stringify(response.data || {})); } catch (e) {}
+      try { localStorage.setItem('last_login_payload', JSON.stringify(response.data || {})); } catch (e) { }
 
       // Special handling for cenadmin or joelfrancisjoy@gmail.com - redirect to E-kalolsavam dashboard (admin)
       const user = response.data.user;
-      if (user.username === 'cenadmin' || user.email === 'joelfrancisjoy@gmail.com') {
+      if (user.username?.toLowerCase() === 'cenadmin' || user.email === 'joelfrancisjoy@gmail.com') {
         navigate('/admin', { replace: true });
         return;
       }
@@ -335,6 +335,8 @@ const Login = () => {
           setError('Your volunteer account is pending approval. Please contact the administrator.');
           return;
         }
+      } else if (userRole === 'school') {
+        navigate('/school', { replace: true });
       } else if (userRole === 'student') {
         // Check if student is blacklisted
         if (user.approval_status === 'rejected') {
@@ -373,11 +375,11 @@ const Login = () => {
 
       localStorage.setItem('access_token', res.data.access);
       localStorage.setItem('refresh_token', res.data.refresh);
-      try { localStorage.setItem('last_login_payload', JSON.stringify(res.data || {})); } catch (e) {}
+      try { localStorage.setItem('last_login_payload', JSON.stringify(res.data || {})); } catch (e) { }
 
       // Special handling for cenadmin or joelfrancisjoy@gmail.com - redirect to E-kalolsavam dashboard (admin)
       const user = res.data.user;
-      if (user.username === 'cenadmin' || user.email === 'joelfrancisjoy@gmail.com') {
+      if (user.username?.toLowerCase() === 'cenadmin' || user.email === 'joelfrancisjoy@gmail.com') {
         navigate('/admin', { replace: true });
         return;
       }
@@ -396,6 +398,8 @@ const Login = () => {
           setError('Your volunteer account is pending approval. Please contact the administrator.');
           return;
         }
+      } else if (userRole === 'school') {
+        navigate('/school', { replace: true });
       } else if (userRole === 'student') {
         // Check if student is blacklisted
         if (user.approval_status === 'rejected') {
@@ -891,16 +895,28 @@ const Login = () => {
               </div>
             ) : null}
 
-            {/* Toggle Login/Signup */}
-            <div className="mt-8 text-center">
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-amber-700 hover:text-orange-700 font-semibold transition-colors duration-200 underline decoration-2 underline-offset-4 decoration-amber-300 hover:decoration-orange-400"
-              >
-                {isLogin
-                  ? "Don't have an account? Sign up"
-                  : "Already have an account? Login"}
-              </button>
+            {/* Registration Redirect - ID-Based Only */}
+            <div className="mt-8 text-center space-y-3">
+              {isLogin ? (
+                <div>
+                  <button
+                    onClick={() => navigate('/register-with-id')}
+                    className="text-amber-700 hover:text-orange-700 font-semibold transition-colors duration-200 underline decoration-2 underline-offset-4 decoration-amber-300 hover:decoration-orange-400"
+                  >
+                    Don't have an account? Register with ID
+                  </button>
+                  <p className="text-xs text-amber-600 mt-2 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 inline-block">
+                    💡 New registrations require an admin-issued ID
+                  </p>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="text-amber-700 hover:text-orange-700 font-semibold transition-colors duration-200 underline decoration-2 underline-offset-4 decoration-amber-300 hover:decoration-orange-400"
+                >
+                  Already have an account? Login
+                </button>
+              )}
             </div>
           </div>
 

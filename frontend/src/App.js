@@ -9,6 +9,10 @@ import StudentDashboard from './pages/StudentDashboard';
 import JudgeDashboard from './pages/JudgeDashboard';
 import AdminPanel from './pages/AdminPanel';
 import VolunteerDashboard from './pages/VolunteerDashboard';
+import SchoolDashboard from './pages/SchoolDashboard';
+import SchoolStandings from './pages/SchoolStandings';
+import IDSignup from './pages/IDSignup';
+import IDBasedRegistration from './pages/IDBasedRegistration';
 import LiveResults from './pages/LiveResults';
 
 function AppContent() {
@@ -48,6 +52,10 @@ function AppContent() {
           <Route path="/admin" element={<ProtectedRoute element={<AdminPanel />} />} />
           <Route path="/admin/:section" element={<ProtectedRoute element={<AdminPanel />} />} />
           <Route path="/volunteer" element={<ProtectedRoute element={<VolunteerDashboard />} />} />
+          <Route path="/school" element={<ProtectedRoute element={<SchoolDashboard />} />} />
+          <Route path="/standings" element={<SchoolStandings />} />
+          <Route path="/register-with-id" element={<IDBasedRegistration />} />
+          <Route path="/id-signup" element={<IDSignup />} />
           <Route path="/results" element={<LiveResults />} />
         </Routes>
       </main>

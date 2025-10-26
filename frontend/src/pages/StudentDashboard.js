@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import eventService from '../services/eventService';
 import resultService from '../services/resultService';
 import http from '../services/http-common';
+import UserInfoHeader from '../components/UserInfoHeader';
 
 // Results from provided CSV (Event + Category combined)
 const csvResults = [
@@ -29,26 +31,26 @@ const CATEGORIES = [
 
 const EVENTS_BY_CATEGORY = {
   dance: [
-    'Aravana Muttu', 'Bharatanatyam', 'Chakyar Koothu', 'Duffmuttu', 'Folk Dance (Solo & Group)', 
-    'Irula Dance', 'Kathakali (Single / Group)', 'Kerala Natanam', 'Kolkali', 'Koodiyattam', 
-    'Kuchipudi', 'Malapulayattam', 'Mangalamkali', 'Margamkali', 'Mohiniyattam', 'Nangiar Koothu', 
-    'Oppana', 'Paliya Dance', 'Paniya Dance', 'Parichamuttukali', 'Poorakkali', 'Thiruvathirakkali', 
+    'Aravana Muttu', 'Bharatanatyam', 'Chakyar Koothu', 'Duffmuttu', 'Folk Dance (Solo & Group)',
+    'Irula Dance', 'Kathakali (Single / Group)', 'Kerala Natanam', 'Kolkali', 'Koodiyattam',
+    'Kuchipudi', 'Malapulayattam', 'Mangalamkali', 'Margamkali', 'Mohiniyattam', 'Nangiar Koothu',
+    'Oppana', 'Paliya Dance', 'Paniya Dance', 'Parichamuttukali', 'Poorakkali', 'Thiruvathirakkali',
     'Vattappattu', 'Nadodi Nritham', 'Thiruvathira'
   ],
   visual_arts: [
     'Cartoon', 'Collage', 'Painting – Oil Colour', 'Painting – Pencil', 'Painting – Water Colour'
   ],
   literary: [
-    'Caption Writing', 'Dictionary Making', 'Essay Writing (Malayalam / English / Hindi / Sanskrit / Urdu / Arabic)', 
-    'Poetry Writing', 'Prasnothari', 'Samasyapooranam', 'Story Writing', 'Translation', 'Aksharaslokam', 
-    'Ashtapadi', 'Chambuprabhashanam', 'Kadhaprasangam', 'Kavyakeli', 'Lecture', 'Mushaira', 'Pathakam', 
+    'Caption Writing', 'Dictionary Making', 'Essay Writing (Malayalam / English / Hindi / Sanskrit / Urdu / Arabic)',
+    'Poetry Writing', 'Prasnothari', 'Samasyapooranam', 'Story Writing', 'Translation', 'Aksharaslokam',
+    'Ashtapadi', 'Chambuprabhashanam', 'Kadhaprasangam', 'Kavyakeli', 'Lecture', 'Mushaira', 'Pathakam',
     'Poetry Recitation', 'Speech', 'Quiz', 'Quran Recitation'
   ],
   music: [
-    'Chenda / Thayambaka', 'Clarinet / Bugle', 'Band', 'Flute', 'Guitar (Western)', 'Instrumental Music', 
-    'Madhalam', 'Mridangam / Kanjira / Ghadam', 'Nadaswaram', 'Panchavadyam', 'Tabla', 'Triple / Jazz (Western)', 
-    'Veena / Vichitra Veena', 'Violin (Eastern / Western / Oriental)', 'Arabic Music', 'Classical Music', 
-    'Folk Music', 'Ghazal', 'Group Song – Urdu', 'Kathakali Music', 'Light Music', 'Mappila Songs', 
+    'Chenda / Thayambaka', 'Clarinet / Bugle', 'Band', 'Flute', 'Guitar (Western)', 'Instrumental Music',
+    'Madhalam', 'Mridangam / Kanjira / Ghadam', 'Nadaswaram', 'Panchavadyam', 'Tabla', 'Triple / Jazz (Western)',
+    'Veena / Vichitra Veena', 'Violin (Eastern / Western / Oriental)', 'Arabic Music', 'Classical Music',
+    'Folk Music', 'Ghazal', 'Group Song – Urdu', 'Kathakali Music', 'Light Music', 'Mappila Songs',
     'Patriotic Song', 'Vanchippattu'
   ],
   theatre: [
@@ -122,13 +124,13 @@ async function generateQRCodeDataUrl(text, size = 256) {
 function downloadRegistrationPDF({ studentName, categoryLabel, eventName, chessNumber, qrDataUrl }) {
   const w = window.open('', '_blank', 'noopener,noreferrer');
   if (!w) return;
-  
+
   const currentDate = new Date().toLocaleDateString('en-IN', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   });
-  
+
   const html = `<!doctype html>
 <html>
   <head>
@@ -391,7 +393,7 @@ function downloadRegistrationPDF({ studentName, categoryLabel, eventName, chessN
     </script>
   </body>
 </html>`;
-  
+
   w.document.write(html);
   w.document.close();
 }
@@ -553,17 +555,17 @@ const TopRightFloatingMenu = ({ onOpen }) => {
         </div>
       </div>
 
-    <button
+      <button
         onClick={() => onOpen(iconInfo.key)}
         className={`group relative w-20 h-20 rounded-3xl bg-gradient-to-br ${iconInfo.gradient} ${iconInfo.shadowColor} shadow-xl hover:shadow-2xl flex items-center justify-center transition-all duration-700 ease-out hover:scale-105 hover:-translate-y-3 overflow-hidden transform-gpu backdrop-blur-sm`}
-        style={{ 
+        style={{
           filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.15))',
         }}
       >
         {/* Sophisticated background layers */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
-        
+
         {/* Elegant floating elements */}
         <div className="absolute top-3 right-3 w-2 h-2 bg-white/70 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500 delay-100 group-hover:animate-pulse"></div>
         <div className="absolute bottom-4 left-4 w-1.5 h-1.5 bg-white/50 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-700 delay-200 group-hover:animate-bounce"></div>
@@ -573,25 +575,25 @@ const TopRightFloatingMenu = ({ onOpen }) => {
         <div className="relative z-10 transform group-hover:scale-110 transition-all duration-500 ease-out group-hover:rotate-6">
           <svg
             className="w-9 h-9 text-white filter drop-shadow-lg"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-      >
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
             <path d={iconInfo.icon} />
-      </svg>
+          </svg>
         </div>
 
         {/* Sophisticated click feedback */}
         <div className="absolute inset-0 bg-white/30 rounded-3xl opacity-0 group-active:opacity-100 transition-opacity duration-150 group-active:animate-pulse"></div>
-        
+
         {/* Elegant border with glow effect */}
         <div className="absolute inset-0 rounded-3xl border-2 border-white/30 group-hover:border-white/50 transition-all duration-500"></div>
-        
+
         {/* Subtle inner glow */}
         <div className="absolute inset-1 rounded-3xl border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
         {/* Premium shine effect */}
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-    </button>
+      </button>
     </div>
   );
 
@@ -619,6 +621,7 @@ const Modal = ({ open, title, onClose, children }) => {
 
 const StudentDashboard = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(null); // 'register' | 'qr' | 'feedback' | 'results' | 'schedule'
   const [registrations, setRegistrations] = useState([]); // server-side list (unchanged usage)
   const [publishedResults, setPublishedResults] = useState([]);
@@ -668,10 +671,10 @@ const StudentDashboard = () => {
       'visual_arts': 'Visual Arts',
       'theatre': 'Theatre / Performance Arts'
     };
-    
+
     // Show all categories for better UX, but track which have published events
     const allCategories = ['dance', 'music', 'literary', 'visual_arts', 'theatre'];
-    
+
     return allCategories.map(key => ({
       key,
       label: categoryMap[key] || key,
@@ -735,28 +738,28 @@ const StudentDashboard = () => {
   useEffect(() => {
     const generateAllQRs = async () => {
       console.log('Starting QR generation with:', { registrations: registrations?.length, events: events?.length });
-      
+
       if (!registrations || registrations.length === 0) {
         console.log('No registrations found');
         setAllRegistrationsWithQR([]);
         setIsGeneratingQR(false);
         return;
       }
-      
+
       if (!events || events.length === 0) {
         console.log('No events found');
         setAllRegistrationsWithQR([]);
         setIsGeneratingQR(false);
         return;
       }
-      
+
       setIsGeneratingQR(true);
       const registrationsWithQR = [];
-      
+
       for (const reg of registrations) {
         try {
           const event = events.find(e => e.id === reg.event);
-          
+
           if (event) {
             const studentName = `${reg.participant_details?.first_name || ''} ${reg.participant_details?.last_name || ''}`.trim();
             const qrPayload = JSON.stringify({
@@ -766,9 +769,9 @@ const StudentDashboard = () => {
               eventId: reg.event,
               category: event.category
             });
-            
+
             const qrDataUrl = await generateQRCodeDataUrl(qrPayload, 320);
-            
+
             const registrationWithQR = {
               ...reg,
               eventName: event.name,
@@ -777,20 +780,20 @@ const StudentDashboard = () => {
               chessNumber: reg.chess_number || reg.chessNumber || 'N/A',
               qrDataUrl: qrDataUrl
             };
-            
+
             console.log('Registration with QR created:', {
               originalChessNumber: reg.chess_number,
               mappedChessNumber: registrationWithQR.chessNumber,
               eventName: registrationWithQR.eventName
             });
-            
+
             registrationsWithQR.push(registrationWithQR);
           }
         } catch (error) {
           console.error('Error generating QR for registration:', reg, error);
         }
       }
-      
+
       setAllRegistrationsWithQR(registrationsWithQR);
       setIsGeneratingQR(false);
     };
@@ -806,7 +809,7 @@ const StudentDashboard = () => {
       selectedRegistrationIndex,
       registrations: registrations.length
     });
-    
+
     if (showAllEvents && allRegistrationsWithQR.length > 0) {
       const selected = allRegistrationsWithQR[selectedRegistrationIndex] || allRegistrationsWithQR[0];
       console.log('Selected registration (all events):', selected);
@@ -873,11 +876,11 @@ const StudentDashboard = () => {
 
       const registeredFirstName = userForValidation.first_name?.trim().toUpperCase() || '';
       const registeredLastName = userForValidation.last_name?.trim().toUpperCase() || '';
-      
+
       // Debug: Log the registered names
       console.log('Registered names:', { registeredFirstName, registeredLastName });
       console.log('Input names:', { firstName, lastName });
-      
+
       // If we have registered names, validate them
       if (registeredFirstName && registeredLastName) {
         // Normalize names for comparison (uppercase, trimmed)
@@ -885,12 +888,12 @@ const StudentDashboard = () => {
         const normalizedInputLast = lastName.trim().toUpperCase();
         const normalizedRegisteredFirst = registeredFirstName.trim().toUpperCase();
         const normalizedRegisteredLast = registeredLastName.trim().toUpperCase();
-        
+
         console.log('Normalized comparison:', {
           input: { first: normalizedInputFirst, last: normalizedInputLast },
           registered: { first: normalizedRegisteredFirst, last: normalizedRegisteredLast }
         });
-        
+
         // Exact match required for both first and last names
         if (normalizedInputFirst !== normalizedRegisteredFirst || normalizedInputLast !== normalizedRegisteredLast) {
           return "Name does not match registered details";
@@ -898,7 +901,7 @@ const StudentDashboard = () => {
       } else {
         return 'Unable to retrieve your registered name details for verification.';
       }
-      
+
       return '';
     } catch (error) {
       console.error('Name validation error:', error);
@@ -909,14 +912,14 @@ const StudentDashboard = () => {
   // Immediate validation function for real-time feedback
   const validateNameImmediate = (first, last) => {
     if (!first || !last || !currentUser) return '';
-    
+
     // Get the logged-in user's actual name
     const userFirstName = currentUser.first_name?.trim().toUpperCase() || '';
     const userLastName = currentUser.last_name?.trim().toUpperCase() || '';
-    
+
     const normalizedInputFirst = first.trim().toUpperCase();
     const normalizedInputLast = last.trim().toUpperCase();
-    
+
     // Check against logged-in user's actual name
     if (normalizedInputFirst !== userFirstName || normalizedInputLast !== userLastName) {
       // Provide simple error messages only
@@ -928,7 +931,7 @@ const StudentDashboard = () => {
         return "Last name does not match";
       }
     }
-    
+
     return '';
   };
 
@@ -937,17 +940,17 @@ const StudentDashboard = () => {
     setFirstName(value);
     const error = validateFirstName(value);
     setFirstNameError(error);
-    
+
     // Reset verification when name changes
     setIsIdentityVerified(false);
     setSelectedCategory('');
     setSelectedEvent('');
-    
+
     // Clear registration error when user starts typing
     if (registrationError && (registrationError.includes('First name') || registrationError.includes('name'))) {
       setRegistrationError('');
     }
-    
+
     // Immediate validation if both names are entered
     if (value && lastName) {
       const nameError = validateNameImmediate(value, lastName);
@@ -960,17 +963,17 @@ const StudentDashboard = () => {
     setLastName(value);
     const error = validateLastName(value);
     setLastNameError(error);
-    
+
     // Reset verification when name changes
     setIsIdentityVerified(false);
     setSelectedCategory('');
     setSelectedEvent('');
-    
+
     // Clear registration error when user starts typing
     if (registrationError && (registrationError.includes('Last name') || registrationError.includes('name'))) {
       setRegistrationError('');
     }
-    
+
     // Immediate validation if both names are entered
     if (value && firstName) {
       const nameError = validateNameImmediate(firstName, value);
@@ -1008,22 +1011,22 @@ const StudentDashboard = () => {
   const handleRegister = async () => {
     // Prevent multiple submissions
     if (isRegistering) return;
-    
+
     // Validate identity verification first
     if (!isIdentityVerified) {
       setRegistrationError('Please verify your identity before registering.');
       return;
     }
-    
+
     // Validate all required fields
     if (!selectedCategory || !selectedEvent || !firstName || !lastName || firstNameError || lastNameError) {
       setRegistrationError('Please complete all required fields correctly.');
       return;
     }
-    
+
     setRegistrationError('');
     setIsRegistering(true);
-    
+
     try {
       // Step 1: Verify name against registered details
       const nameMatchError = await validateNameMatch(firstName, lastName);
@@ -1043,30 +1046,30 @@ const StudentDashboard = () => {
 
       // Step 3: Proceed with registration (events are already filtered to published only)
       const eventId = Number(selectedEventObj.id);
-      
+
       // Call the registration API with normalized uppercase names (backend requires uppercase, no spaces)
       const registrationResult = await eventService.registerForEvent(
         eventId,
         String(firstName || '').trim().toUpperCase(),
         String(lastName || '').trim().toUpperCase()
       );
-      
+
       // Generate registration confirmation details
       const categoryLabel = availableCategories.find((c) => c.key === selectedCategory)?.label || selectedCategory;
       const eventName = selectedEvent;
       const chessNumber = generateChessNumber();
       const studentName = `${firstName} ${lastName}`;
-      
+
       // Generate QR code with registration data
-      const qrPayload = JSON.stringify({ 
-        studentName, 
-        category: categoryLabel, 
-        event: eventName, 
+      const qrPayload = JSON.stringify({
+        studentName,
+        category: categoryLabel,
+        event: eventName,
         chessNumber,
         eventId: eventId,
         registrationDate: new Date().toISOString()
       });
-      
+
       const qrDataUrl = await generateQRCodeDataUrl(qrPayload, 320);
 
       // Store registration details
@@ -1091,7 +1094,7 @@ const StudentDashboard = () => {
           date: selectedEventObj.date || 'TBD',
           start_time: selectedEventObj.start_time || 'TBD',
           end_time: selectedEventObj.end_time || 'TBD',
-          venue_details: { 
+          venue_details: {
             name: selectedEventObj.venue?.name || selectedEventObj.venue_details?.name || 'TBD',
             location: selectedEventObj.venue?.location || 'TBD'
           }
@@ -1121,25 +1124,25 @@ const StudentDashboard = () => {
       // Reset selections but keep name for convenience
       setSelectedCategory('');
       setSelectedEvent('');
-      
+
       // Clear any previous errors
       setRegistrationError('');
       setIsRegistering(false);
-      
+
     } catch (error) {
       console.error('Registration error:', error);
       // Log raw server response for easier troubleshooting during development
       if (error?.response?.data) {
         console.log('Registration 400 body:', error.response.data);
       }
-      
+
       // Handle different types of errors
       let errorMessage = 'Registration failed. Please try again.';
-      
+
       if (error.response) {
         // Server responded with error status
         const { status, data } = error.response;
-        
+
         if (status === 400) {
           // Bad request - validation errors
           if (data.first_name) {
@@ -1184,7 +1187,7 @@ const StudentDashboard = () => {
         // Other error
         errorMessage = error.message || 'An unexpected error occurred.';
       }
-      
+
       setRegistrationError(errorMessage);
       setIsRegistering(false);
     }
@@ -1195,7 +1198,14 @@ const StudentDashboard = () => {
       backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f59e0b' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
       backgroundSize: '60px 60px'
     }}>
-      {/* Header */}
+      {/* User Info Header */}
+      <UserInfoHeader
+        user={currentUser}
+        title="Student Dashboard"
+        subtitle="Manage registrations, view events, and track results"
+      />
+
+      {/* Header - Keeping original design elements below UserInfoHeader */}
       <div className="relative bg-white/90 backdrop-blur-sm border-b-2 border-amber-200 shadow-sm mb-10 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
           <div className="flex items-center justify-center gap-4 mb-2">
@@ -1667,7 +1677,7 @@ const StudentDashboard = () => {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v2H3V5zm0 4h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9zm4 2v8h10v-8H7z"/></svg>
+                <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18v2H3V5zm0 4h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9zm4 2v8h10v-8H7z" /></svg>
               </div>
               <div>
                 <h3 className="text-xl font-bold text-emerald-800" style={{ fontFamily: 'Cinzel, serif' }}>Published Events</h3>
@@ -1864,9 +1874,9 @@ const StudentDashboard = () => {
                   <div className="text-gray-600">Fill Details</div>
                 </div>
               </div>
-              
+
               <div className={`h-1 w-12 ${firstName && lastName && !firstNameError && !lastNameError ? 'bg-green-500' : 'bg-amber-200'} transition-colors duration-300`}></div>
-              
+
               {/* Step 2: Identity Verification */}
               <div className="flex flex-col items-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${isIdentityVerified ? 'bg-green-500 text-white shadow-lg' : 'bg-amber-200 text-amber-700'}`}>
@@ -1877,9 +1887,9 @@ const StudentDashboard = () => {
                   <div className="text-gray-600">Confirm Details</div>
                 </div>
               </div>
-              
+
               <div className={`h-1 w-12 ${isIdentityVerified ? 'bg-green-500' : 'bg-amber-200'} transition-colors duration-300`}></div>
-              
+
               {/* Step 3: Category Selection */}
               <div className="flex flex-col items-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${selectedCategory ? 'bg-green-500 text-white shadow-lg' : 'bg-amber-200 text-amber-700'}`}>
@@ -1890,9 +1900,9 @@ const StudentDashboard = () => {
                   <div className="text-gray-600">Choose Type</div>
                 </div>
               </div>
-              
+
               <div className={`h-1 w-12 ${selectedEvent ? 'bg-green-500' : 'bg-amber-200'} transition-colors duration-300`}></div>
-              
+
               {/* Step 4: Event Selection */}
               <div className="flex flex-col items-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${selectedEvent ? 'bg-green-500 text-white shadow-lg' : 'bg-amber-200 text-amber-700'}`}>
@@ -1910,7 +1920,7 @@ const StudentDashboard = () => {
           <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-6 border border-amber-200 relative overflow-hidden">
             {/* Background decoration */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-amber-200/30 to-transparent rounded-full -mr-16 -mt-16"></div>
-            
+
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -1977,20 +1987,19 @@ const StudentDashboard = () => {
                   )}
                 </div>
               </div>
-              
-              
+
+
               {/* Identity Verification Button */}
               <div className="mt-6 flex justify-center">
                 <button
                   onClick={handleIdentityVerification}
                   disabled={!firstName || !lastName || firstNameError || lastNameError || isVerifying || isIdentityVerified}
-                  className={`px-8 py-3 rounded-xl font-bold text-base transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
-                    isIdentityVerified 
+                  className={`px-8 py-3 rounded-xl font-bold text-base transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${isIdentityVerified
                       ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
                       : firstName && lastName && !firstNameError && !lastNameError && !isVerifying
                         ? 'bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-lg hover:shadow-xl'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-2">
                     {isVerifying ? (
@@ -2001,8 +2010,8 @@ const StudentDashboard = () => {
                     ) : isIdentityVerified ? (
                       <>
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
-                    </svg>
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path>
+                        </svg>
                         Identity Verified
                       </>
                     ) : (
@@ -2032,60 +2041,60 @@ const StudentDashboard = () => {
 
           {/* Category Selection - Only show after identity verification */}
           {isIdentityVerified && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"></path>
-                </svg>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"></path>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-blue-800" style={{ fontFamily: 'Cinzel, serif' }}>Select Category</h3>
               </div>
-              <h3 className="text-lg font-bold text-blue-800" style={{ fontFamily: 'Cinzel, serif' }}>Select Category</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {availableCategories.map((c) => (
-                <button
-                  key={c.key}
-                  onClick={() => {
-                    if (!isIdentityVerified) {
-                      setRegistrationError('Please verify your identity before selecting a category.');
-                      return;
-                    }
-                    setSelectedCategory(c.key);
-                    setSelectedEvent('');
-                  }}
-                  className={`group rounded-2xl p-6 border-2 transition-all duration-300 text-left hover:shadow-xl hover:scale-105 relative overflow-hidden ${selectedCategory === c.key
-                    ? 'bg-gradient-to-br from-amber-100 to-orange-100 border-amber-400 shadow-xl ring-2 ring-amber-300'
-                    : 'bg-white border-blue-200 hover:border-blue-300 hover:bg-blue-50'
-                    }`}
-                >
-                  {/* Background gradient overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${c.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
-                  
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className={`w-12 h-12 bg-gradient-to-br ${c.color} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                        <span className="text-2xl">{c.icon}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {availableCategories.map((c) => (
+                  <button
+                    key={c.key}
+                    onClick={() => {
+                      if (!isIdentityVerified) {
+                        setRegistrationError('Please verify your identity before selecting a category.');
+                        return;
+                      }
+                      setSelectedCategory(c.key);
+                      setSelectedEvent('');
+                    }}
+                    className={`group rounded-2xl p-6 border-2 transition-all duration-300 text-left hover:shadow-xl hover:scale-105 relative overflow-hidden ${selectedCategory === c.key
+                      ? 'bg-gradient-to-br from-amber-100 to-orange-100 border-amber-400 shadow-xl ring-2 ring-amber-300'
+                      : 'bg-white border-blue-200 hover:border-blue-300 hover:bg-blue-50'
+                      }`}
+                  >
+                    {/* Background gradient overlay */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${c.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
+
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`w-12 h-12 bg-gradient-to-br ${c.color} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                          <span className="text-2xl">{c.icon}</span>
+                        </div>
+                        <div className={`font-bold text-lg ${selectedCategory === c.key ? 'text-amber-900' : 'text-blue-900'}`} style={{ fontFamily: 'Cinzel, serif' }}>
+                          {c.label}
+                        </div>
                       </div>
-                      <div className={`font-bold text-lg ${selectedCategory === c.key ? 'text-amber-900' : 'text-blue-900'}`} style={{ fontFamily: 'Cinzel, serif' }}>
-                        {c.label}
+
+                      <div className={`text-sm ${selectedCategory === c.key ? 'text-amber-700' : 'text-blue-700'} mb-2`}>
+                        {c.eventCount} events available
                       </div>
+
+                      {selectedCategory === c.key && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-amber-600 font-medium">Selected</span>
+                        </div>
+                      )}
                     </div>
-                    
-                    <div className={`text-sm ${selectedCategory === c.key ? 'text-amber-700' : 'text-blue-700'} mb-2`}>
-                      {c.eventCount} events available
-                    </div>
-                    
-                    {selectedCategory === c.key && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                        <span className="text-xs text-amber-600 font-medium">Selected</span>
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
           )}
 
           {/* Event Selection */}
@@ -2102,10 +2111,10 @@ const StudentDashboard = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {(() => {
                   // Get events from the published events array that match the selected category
-                  const categoryEvents = events.filter(event => 
+                  const categoryEvents = events.filter(event =>
                     event.category === selectedCategory
                   );
-                  
+
                   if (categoryEvents.length === 0) {
                     return (
                       <div className="col-span-2 text-center py-12">
@@ -2116,7 +2125,7 @@ const StudentDashboard = () => {
                         </div>
                         <h3 className="text-xl font-bold text-gray-700 mb-3" style={{ fontFamily: 'Cinzel, serif' }}>No Events Published</h3>
                         <p className="text-gray-600 text-lg leading-relaxed max-w-md mx-auto">
-                          No events are currently published for the <strong>{availableCategories.find(c => c.key === selectedCategory)?.label}</strong> category. 
+                          No events are currently published for the <strong>{availableCategories.find(c => c.key === selectedCategory)?.label}</strong> category.
                           Please check back later or contact the administration.
                         </p>
                         <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
@@ -2127,7 +2136,7 @@ const StudentDashboard = () => {
                       </div>
                     );
                   }
-                  
+
                   return categoryEvents.map((event) => (
                     <button
                       key={event.id}
@@ -2145,14 +2154,14 @@ const StudentDashboard = () => {
                     >
                       {/* Published indicator */}
                       <div className="absolute top-3 right-3 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                      
+
                       <div className={`font-bold text-lg mb-2 ${selectedEvent === event.name ? 'text-amber-900' : 'text-green-900'}`} style={{ fontFamily: 'Cinzel, serif' }}>
                         {event.name}
                       </div>
                       <div className={`text-sm ${selectedEvent === event.name ? 'text-amber-700' : 'text-green-700'} mb-2`}>
                         {event.description || 'Click to select this event'}
                       </div>
-                      
+
                       {/* Event details */}
                       <div className="flex items-center gap-4 text-xs text-gray-600">
                         <div className="flex items-center gap-1">
@@ -2168,7 +2177,7 @@ const StudentDashboard = () => {
                           {event.start_time || 'TBD'}
                         </div>
                       </div>
-                      
+
                       {selectedEvent === event.name && (
                         <div className="mt-3 flex items-center gap-2">
                           <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
@@ -2440,11 +2449,10 @@ const StudentDashboard = () => {
                     <button
                       key={index}
                       onClick={() => setSelectedRegistrationIndex(index)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        index === selectedRegistrationIndex
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${index === selectedRegistrationIndex
                           ? 'bg-indigo-600 text-white shadow-md'
                           : 'bg-white text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
-                      }`}
+                        }`}
                     >
                       {reg.eventName}
                     </button>
@@ -2565,7 +2573,7 @@ const StudentDashboard = () => {
                       key={star}
                       className="w-12 h-12 rounded-full bg-white border-2 border-green-200 hover:border-green-400 hover:bg-green-50 transition-all duration-200 flex items-center justify-center group"
                     >
-                      <svg 
+                      <svg
                         className="w-6 h-6 text-green-400 group-hover:text-green-600 transition-colors duration-200"
                         fill="currentColor"
                         viewBox="0 0 20 20"
@@ -2845,7 +2853,7 @@ const StudentDashboard = () => {
                                   <span className="text-sm font-semibold text-green-800">Date & Time</span>
                                 </div>
                                 <div className="text-green-900 font-medium">
-                                  {registration.event_details?.date || 'TBD'} {registration.event_details?.start_time && registration.event_details?.end_time ? 
+                                  {registration.event_details?.date || 'TBD'} {registration.event_details?.start_time && registration.event_details?.end_time ?
                                     `(${registration.event_details.start_time} - ${registration.event_details.end_time})` : ''}
                                 </div>
                               </div>
@@ -2901,7 +2909,7 @@ const StudentDashboard = () => {
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"></path>
                               </svg>
-                              {item.event_details?.date} {item.event_details?.start_time && item.event_details?.end_time ? 
+                              {item.event_details?.date} {item.event_details?.start_time && item.event_details?.end_time ?
                                 `(${item.event_details.start_time} - ${item.event_details.end_time})` : ''}
                             </div>
                             <div className="text-sm text-blue-600 mt-1 flex items-center gap-1">

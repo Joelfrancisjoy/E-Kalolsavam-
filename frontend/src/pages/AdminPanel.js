@@ -8,6 +8,8 @@ import ResultPublishing from '../components/ResultPublishing';
 import CertificateGeneration from '../components/CertificateGeneration';
 import VolunteerCoordination from '../components/VolunteerCoordination';
 import SystemSettings from '../components/SystemSettings';
+import SchoolManagement from '../components/SchoolManagement';
+import IDManagement from '../components/IDManagementEnhanced';
 
 const AdminPanel = () => {
   const { t } = useTranslation();
@@ -35,6 +37,10 @@ const AdminPanel = () => {
         return <VolunteerCoordination />;
       case 'settings':
         return <SystemSettings />;
+      case 'schools':
+        return <SchoolManagement />;
+      case 'ids':
+        return <IDManagement />;
       case 'dashboard':
       default:
         return (
@@ -104,8 +110,26 @@ const AdminPanel = () => {
                 />
               </div>
 
-              {/* Row 3 - Centered single card */}
-              <div className="md:col-span-2 lg:col-span-3 flex justify-center animate-fade-in-up animation-delay-700">
+              {/* Row 3 - New workflow features */}
+              <div className="animate-fade-in-up animation-delay-700">
+                <AdminCard
+                  title="School Management"
+                  description="Create and manage school accounts"
+                  icon="🏫"
+                  onClick={() => goTo('schools')}
+                />
+              </div>
+              <div className="animate-fade-in-up animation-delay-800">
+                <AdminCard
+                  title="ID Management"
+                  description="Generate IDs for volunteers and judges"
+                  icon="🔑"
+                  onClick={() => goTo('ids')}
+                />
+              </div>
+
+              {/* Row 4 - Centered single card */}
+              <div className="md:col-span-2 lg:col-span-3 flex justify-center animate-fade-in-up animation-delay-900">
                 <div className="max-w-md w-full">
                   <AdminCard
                     title={t('system_settings') || 'System Settings'}

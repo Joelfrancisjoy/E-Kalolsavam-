@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import userService from '../services/userService';
 import volunteerService from '../services/volunteerService';
 import eventService from '../services/eventService';
+import http from '../services/http-common';
+import UserInfoHeader from '../components/UserInfoHeader';
 
 const VolunteerDashboard = () => {
   const { t } = useTranslation();
@@ -11,7 +14,7 @@ const VolunteerDashboard = () => {
   const [creatingNew, setCreatingNew] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [pwdError, setPwdError] = useState('');
-  
+
   // New state for volunteer dashboard
   const [assignments, setAssignments] = useState([]);
   const [verifications, setVerifications] = useState([]);
@@ -30,8 +33,21 @@ const VolunteerDashboard = () => {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [eventParticipants, setEventParticipants] = useState([]);
   const [verifiedParticipantIds, setVerifiedParticipantIds] = useState(new Set());
+  const [currentUser, setCurrentUser] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await http.get('/api/auth/current/');
+        setCurrentUser(response.data);
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+        navigate('/login');
+      }
+    };
+    fetchUser();
+
     try {
       const userBlob = localStorage.getItem('last_login_payload');
       if (userBlob) {
@@ -42,7 +58,7 @@ const VolunteerDashboard = () => {
           setShowPasswordChoice(true);
         }
       }
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   useEffect(() => {
@@ -75,7 +91,7 @@ const VolunteerDashboard = () => {
       ]);
       setAssignments(assignmentsRes.data);
       setVerifications(verificationsRes.data);
-      
+
       // Build a set of verified participant IDs for quick lookup
       const verifiedIds = new Set(
         verificationsRes.data
@@ -115,7 +131,7 @@ const VolunteerDashboard = () => {
       // Get participant details from the event registration
       const response = await eventService.getParticipantByChessNumber(chessNumber, eventId);
       setParticipantDetails(response.data);
-      
+
       // Auto-fill event details in notes
       const selectedEvent = assignments.find(a => a.id === parseInt(eventId));
       if (selectedEvent && response.data) {
@@ -212,6 +228,13 @@ const VolunteerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* User Info Header */}
+      <UserInfoHeader
+        user={currentUser}
+        title="Volunteer Dashboard"
+        subtitle="Manage shifts and verify participants"
+      />
+
       {showPasswordChoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6">
@@ -241,249 +264,238 @@ const VolunteerDashboard = () => {
         </div>
       )}
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 font-sans">Volunteer Dashboard</h1>
-            <p className="mt-2 text-lg text-gray-600 font-medium">Manage your shifts and verify participants efficiently</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Main Content Area */}
+          <div className="flex-1">
+            {/* Navigation Tabs */}
+            <div className="mb-8">
+              <nav className="grid grid-cols-3 gap-1 bg-white rounded-lg p-1 shadow-sm">
+                <button
+                  onClick={() => setActiveTab('assignments')}
+                  className={`py-3 px-4 rounded-md font-semibold text-sm transition-all duration-200 ${activeTab === 'assignments'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <span>My Assignments</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('participants')}
+                  className={`py-3 px-4 rounded-md font-semibold text-sm transition-all duration-200 ${activeTab === 'participants'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                    </svg>
+                    <span>Event Participants</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('verification')}
+                  className={`py-3 px-4 rounded-md font-semibold text-sm transition-all duration-200 ${activeTab === 'verification'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Verify Participants</span>
+                  </div>
+                </button>
+              </nav>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 shadow-sm">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-red-800">{error}</p>
+                  </div>
+                  <div className="ml-auto pl-3">
+                    <button onClick={() => setError('')} className="text-red-400 hover:text-red-600">
+                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {verificationResult && (
+              <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 shadow-sm">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-green-800">
+                      Participant verified successfully! Chess Number: {verificationResult.chess_number}
+                    </p>
+                  </div>
+                  <div className="ml-auto pl-3">
+                    <button onClick={() => setVerificationResult(null)} className="text-green-400 hover:text-green-600">
+                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab Content */}
+            {activeTab === 'assignments' && (
+              <AssignmentsTab assignments={assignments} onCheckIn={handleCheckIn} />
+            )}
+
+            {activeTab === 'participants' && (
+              <ParticipantsTab
+                assignments={assignments}
+                selectedEventId={selectedEventId}
+                setSelectedEventId={setSelectedEventId}
+                eventParticipants={eventParticipants}
+                verifiedParticipantIds={verifiedParticipantIds}
+              />
+            )}
+
+            {activeTab === 'verification' && (
+              <VerificationTab
+                assignments={assignments}
+                verificationForm={verificationForm}
+                setVerificationForm={setVerificationForm}
+                onVerify={handleVerifyParticipant}
+                participantDetails={participantDetails}
+                isSearchingParticipant={isSearchingParticipant}
+                onChessNumberChange={handleChessNumberChange}
+                onEventChange={handleEventChange}
+              />
+            )}
+
+            {activeTab === 'history' && (
+              <HistoryTab verifications={verifications} />
+            )}
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Main Content Area */}
-            <div className="flex-1">
-              {/* Navigation Tabs */}
-              <div className="mb-8">
-                <nav className="grid grid-cols-3 gap-1 bg-white rounded-lg p-1 shadow-sm">
-                  <button
-                    onClick={() => setActiveTab('assignments')}
-                    className={`py-3 px-4 rounded-md font-semibold text-sm transition-all duration-200 ${
-                      activeTab === 'assignments'
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      <span>My Assignments</span>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('participants')}
-                    className={`py-3 px-4 rounded-md font-semibold text-sm transition-all duration-200 ${
-                      activeTab === 'participants'
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                      </svg>
-                      <span>Event Participants</span>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('verification')}
-                    className={`py-3 px-4 rounded-md font-semibold text-sm transition-all duration-200 ${
-                      activeTab === 'verification'
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>Verify Participants</span>
-                    </div>
-                  </button>
-                </nav>
+          {/* Right Sidebar with Big Icons */}
+          <div className="w-full lg:w-80 space-y-6">
+            {/* Participant Verification Icon */}
+            <div
+              className="relative group cursor-pointer"
+              onMouseEnter={() => setHoveredIcon('verification')}
+              onMouseLeave={() => setHoveredIcon(null)}
+              onClick={() => setActiveTab('verification')}
+            >
+              <div className={`bg-white rounded-2xl p-8 shadow-lg transition-all duration-300 transform ${hoveredIcon === 'verification' ? 'scale-105 shadow-xl' : 'hover:shadow-xl'
+                } ${activeTab === 'verification' ? 'ring-2 ring-blue-500' : ''}`}>
+                <div className="text-center">
+                  <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">Participant Verification</h3>
+                  <p className="text-sm text-gray-600">Verify participants by chess number</p>
+                </div>
               </div>
 
-              {/* Error Display */}
-              {error && (
-                <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 shadow-sm">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-red-800">{error}</p>
-                    </div>
-                    <div className="ml-auto pl-3">
-                      <button onClick={() => setError('')} className="text-red-400 hover:text-red-600">
-                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
+              {/* Hover Tooltip */}
+              {hoveredIcon === 'verification' && (
+                <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-4 bg-gray-900 text-white text-sm rounded-lg px-3 py-2 whitespace-nowrap z-10">
+                  <div className="w-2 h-2 bg-gray-900 absolute left-full top-1/2 transform -translate-y-1/2 rotate-45"></div>
+                  <div className="font-medium">Quick Actions:</div>
+                  <div className="text-xs mt-1">• Enter chess number</div>
+                  <div className="text-xs">• Auto-fill participant details</div>
+                  <div className="text-xs">• Send to assigned judges</div>
                 </div>
-              )}
-
-              {/* Success Message */}
-              {verificationResult && (
-                <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 shadow-sm">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-green-800">
-                        Participant verified successfully! Chess Number: {verificationResult.chess_number}
-                      </p>
-                    </div>
-                    <div className="ml-auto pl-3">
-                      <button onClick={() => setVerificationResult(null)} className="text-green-400 hover:text-green-600">
-                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab Content */}
-              {activeTab === 'assignments' && (
-                <AssignmentsTab assignments={assignments} onCheckIn={handleCheckIn} />
-              )}
-
-              {activeTab === 'participants' && (
-                <ParticipantsTab
-                  assignments={assignments}
-                  selectedEventId={selectedEventId}
-                  setSelectedEventId={setSelectedEventId}
-                  eventParticipants={eventParticipants}
-                  verifiedParticipantIds={verifiedParticipantIds}
-                />
-              )}
-
-              {activeTab === 'verification' && (
-                <VerificationTab
-                  assignments={assignments}
-                  verificationForm={verificationForm}
-                  setVerificationForm={setVerificationForm}
-                  onVerify={handleVerifyParticipant}
-                  participantDetails={participantDetails}
-                  isSearchingParticipant={isSearchingParticipant}
-                  onChessNumberChange={handleChessNumberChange}
-                  onEventChange={handleEventChange}
-                />
-              )}
-
-              {activeTab === 'history' && (
-                <HistoryTab verifications={verifications} />
               )}
             </div>
 
-            {/* Right Sidebar with Big Icons */}
-            <div className="w-full lg:w-80 space-y-6">
-              {/* Participant Verification Icon */}
-              <div 
-                className="relative group cursor-pointer"
-                onMouseEnter={() => setHoveredIcon('verification')}
-                onMouseLeave={() => setHoveredIcon(null)}
-                onClick={() => setActiveTab('verification')}
-              >
-                <div className={`bg-white rounded-2xl p-8 shadow-lg transition-all duration-300 transform ${
-                  hoveredIcon === 'verification' ? 'scale-105 shadow-xl' : 'hover:shadow-xl'
-                } ${activeTab === 'verification' ? 'ring-2 ring-blue-500' : ''}`}>
-                  <div className="text-center">
-                    <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">Participant Verification</h3>
-                    <p className="text-sm text-gray-600">Verify participants by chess number</p>
-                  </div>
-                </div>
-                
-                {/* Hover Tooltip */}
-                {hoveredIcon === 'verification' && (
-                  <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-4 bg-gray-900 text-white text-sm rounded-lg px-3 py-2 whitespace-nowrap z-10">
-                    <div className="w-2 h-2 bg-gray-900 absolute left-full top-1/2 transform -translate-y-1/2 rotate-45"></div>
-                    <div className="font-medium">Quick Actions:</div>
-                    <div className="text-xs mt-1">• Enter chess number</div>
-                    <div className="text-xs">• Auto-fill participant details</div>
-                    <div className="text-xs">• Send to assigned judges</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Verification History Icon */}
-              <div 
-                className="relative group cursor-pointer"
-                onMouseEnter={() => setHoveredIcon('history')}
-                onMouseLeave={() => setHoveredIcon(null)}
-                onClick={() => setActiveTab('history')}
-              >
-                <div className={`bg-white rounded-2xl p-8 shadow-lg transition-all duration-300 transform ${
-                  hoveredIcon === 'history' ? 'scale-105 shadow-xl' : 'hover:shadow-xl'
+            {/* Verification History Icon */}
+            <div
+              className="relative group cursor-pointer"
+              onMouseEnter={() => setHoveredIcon('history')}
+              onMouseLeave={() => setHoveredIcon(null)}
+              onClick={() => setActiveTab('history')}
+            >
+              <div className={`bg-white rounded-2xl p-8 shadow-lg transition-all duration-300 transform ${hoveredIcon === 'history' ? 'scale-105 shadow-xl' : 'hover:shadow-xl'
                 } ${activeTab === 'history' ? 'ring-2 ring-blue-500' : ''}`}>
-                  <div className="text-center">
-                    <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                      <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">Verification History</h3>
-                    <p className="text-sm text-gray-600">View all verified participants</p>
-                    <div className="mt-3 text-xs text-gray-500">
-                      {verifications.length} verified
-                    </div>
+                <div className="text-center">
+                  <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">Verification History</h3>
+                  <p className="text-sm text-gray-600">View all verified participants</p>
+                  <div className="mt-3 text-xs text-gray-500">
+                    {verifications.length} verified
                   </div>
                 </div>
-                
-                {/* Hover Tooltip */}
-                {hoveredIcon === 'history' && (
-                  <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-4 bg-gray-900 text-white text-sm rounded-lg px-3 py-2 whitespace-nowrap z-10">
-                    <div className="w-2 h-2 bg-gray-900 absolute left-full top-1/2 transform -translate-y-1/2 rotate-45"></div>
-                    <div className="font-medium">History Details:</div>
-                    <div className="text-xs mt-1">• View verification records</div>
-                    <div className="text-xs">• Check participant status</div>
-                    <div className="text-xs">• Export verification data</div>
-                  </div>
-                )}
               </div>
 
-              {/* Quick Stats */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Stats</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Active Assignments</span>
-                    <span className="text-lg font-bold text-blue-600">{assignments.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Total Participants</span>
-                    <span className="text-lg font-bold text-indigo-600">{eventParticipants.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Verified Today</span>
-                    <span className="text-lg font-bold text-green-600">
-                      {verifications.filter(v =>
-                        new Date(v.verification_time).toDateString() === new Date().toDateString()
-                      ).length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Total Verified</span>
-                    <span className="text-lg font-bold text-purple-600">{verifications.length}</span>
-                  </div>
+              {/* Hover Tooltip */}
+              {hoveredIcon === 'history' && (
+                <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-4 bg-gray-900 text-white text-sm rounded-lg px-3 py-2 whitespace-nowrap z-10">
+                  <div className="w-2 h-2 bg-gray-900 absolute left-full top-1/2 transform -translate-y-1/2 rotate-45"></div>
+                  <div className="font-medium">History Details:</div>
+                  <div className="text-xs mt-1">• View verification records</div>
+                  <div className="text-xs">• Check participant status</div>
+                  <div className="text-xs">• Export verification data</div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Stats */}
+            <div className="bg-white rounded-2xl p-6 shadow-lg">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Stats</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Active Assignments</span>
+                  <span className="text-lg font-bold text-blue-600">{assignments.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total Participants</span>
+                  <span className="text-lg font-bold text-indigo-600">{eventParticipants.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Verified Today</span>
+                  <span className="text-lg font-bold text-green-600">
+                    {verifications.filter(v =>
+                      new Date(v.verification_time).toDateString() === new Date().toDateString()
+                    ).length}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total Verified</span>
+                  <span className="text-lg font-bold text-purple-600">{verifications.length}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
   );
 };
 
@@ -593,7 +605,7 @@ const VerificationTab = ({ assignments, verificationForm, setVerificationForm, o
                 ))}
               </select>
             </div>
-            
+
             <div>
               <label htmlFor="chessNumber" className="block text-sm font-semibold text-gray-700 mb-2">
                 Chess Number *
@@ -656,7 +668,7 @@ const VerificationTab = ({ assignments, verificationForm, setVerificationForm, o
               </div>
             </div>
           )}
-          
+
           <div>
             <label htmlFor="notes" className="block text-sm font-semibold text-gray-700 mb-2">
               Event Details & Notes
@@ -670,7 +682,7 @@ const VerificationTab = ({ assignments, verificationForm, setVerificationForm, o
               placeholder="Event details and any additional notes will be auto-filled..."
             />
           </div>
-          
+
           <div className="flex justify-end">
             <button
               type="submit"
@@ -755,23 +767,21 @@ const HistoryTab = ({ verifications }) => {
                       {verification.participant_details?.first_name} {verification.participant_details?.last_name}
                     </h3>
                     <div className="flex items-center space-x-2 mt-1">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                        verification.status === 'verified' 
-                          ? 'bg-green-100 text-green-800' 
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${verification.status === 'verified'
+                          ? 'bg-green-100 text-green-800'
                           : verification.status === 'rejected'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        <div className={`w-2 h-2 rounded-full mr-2 ${
-                          verification.status === 'verified' ? 'bg-green-400' : 
-                          verification.status === 'rejected' ? 'bg-red-400' : 'bg-yellow-400'
-                        }`}></div>
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                        <div className={`w-2 h-2 rounded-full mr-2 ${verification.status === 'verified' ? 'bg-green-400' :
+                            verification.status === 'rejected' ? 'bg-red-400' : 'bg-yellow-400'
+                          }`}></div>
                         {verification.status}
                       </span>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
                     <span className="text-sm font-medium text-gray-600">Event:</span>
@@ -794,7 +804,7 @@ const HistoryTab = ({ verifications }) => {
                     </p>
                   </div>
                 </div>
-                
+
                 {verification.notes && (
                   <div className="bg-gray-50 rounded-xl p-4">
                     <span className="text-sm font-medium text-gray-600">Notes:</span>
@@ -802,7 +812,7 @@ const HistoryTab = ({ verifications }) => {
                   </div>
                 )}
               </div>
-              
+
               <div className="text-right ml-6">
                 <div className="text-sm font-medium text-gray-600 mb-1">Verified</div>
                 <div className="text-sm font-bold text-gray-900">
