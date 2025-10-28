@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'r
 import { useTranslation } from 'react-i18next';
 import Header from './components/Header';
 import LandingPage from './pages/LandingPage';
-import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import StudentDashboard from './pages/StudentDashboard';
 import JudgeDashboard from './pages/JudgeDashboard';

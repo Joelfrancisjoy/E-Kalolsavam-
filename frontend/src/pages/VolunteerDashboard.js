@@ -5,8 +5,7 @@ import volunteerService from '../services/volunteerService';
 import eventService from '../services/eventService';
 
 const VolunteerDashboard = () => {
-  const { t } = useTranslation();
-  const [showPasswordChoice, setShowPasswordChoice] = useState(false);
+    const [showPasswordChoice, setShowPasswordChoice] = useState(false);
   const [maskedPending, setMaskedPending] = useState('');
   const [creatingNew, setCreatingNew] = useState(false);
   const [newPassword, setNewPassword] = useState('');

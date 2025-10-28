@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next';
 import allowedEmailService from '../services/allowedEmailService';
 
 const AllowedEmailsManager = () => {
-    const { t } = useTranslation();
-    const [emails, setEmails] = useState([]);
+        const [emails, setEmails] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
