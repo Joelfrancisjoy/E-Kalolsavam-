@@ -1,12 +1,12 @@
-﻿[build]
-  base = ""frontend""
-  command = ""CI=false npm run build""
-  publish = ""build""
+[build]
+  base = "frontend"
+  command = "CI=false npm run build"
+  publish = "build"
 
 [build.environment]
-  NODE_VERSION = ""18""
+  NODE_VERSION = "18"
 
 [[redirects]]
-  from = ""/*""
-  to = ""/index.html""
+  from = "/*"
+  to = "/index.html"
   status = 200
