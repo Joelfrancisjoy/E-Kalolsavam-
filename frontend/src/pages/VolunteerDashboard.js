@@ -1086,7 +1086,80 @@ const AssignmentsTab = ({ assignments, onCheckIn }) => {
   );
 };
 
+const EventSearchDropdown = ({ assignments, selectedId, onSelect, search, setSearch, placeholder }) => {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, []);
+
+  const q = (search || '').trim().toLowerCase();
+  const exactMatches = q
+    ? (assignments || []).filter((a) => (a?.name || '').toLowerCase() === q)
+    : [];
+  const filteredAssignments = !q
+    ? (assignments || [])
+    : exactMatches.length > 0
+      ? exactMatches
+      : (assignments || []).filter((a) => (a?.name || '').toLowerCase().startsWith(q));
+
+  const selected = (assignments || []).find((a) => a?.id === selectedId) || null;
+  const buttonLabel = selected ? `${selected.name} - ${selected.date}` : (placeholder || 'Select');
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium transition-all duration-200 mb-3"
+        placeholder="Type to search events"
+      />
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium transition-all duration-200 bg-white text-left"
+      >
+        {buttonLabel}
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-auto">
+          {filteredAssignments.map((assignment) => (
+            <button
+              key={assignment.id}
+              type="button"
+              onClick={() => {
+                onSelect(assignment.id);
+                setOpen(false);
+              }}
+              className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm font-medium"
+            >
+              {assignment.name} - {assignment.date}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const VerificationTab = ({ assignments, verificationForm, setVerificationForm, onVerify, participantDetails, isSearchingParticipant, onChessNumberChange, onEventChange }) => {
+  const [eventSearch, setEventSearch] = useState('');
+
   return (
     <div className="space-y-8">
       {/* Verification Form */}
@@ -1102,19 +1175,26 @@ const VerificationTab = ({ assignments, verificationForm, setVerificationForm, o
                 Event *
               </label>
               <select
-                id="event"
                 value={verificationForm.eventId}
                 onChange={(e) => onEventChange(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium transition-all duration-200"
                 required
+                style={{ position: 'absolute', opacity: 0, height: 0, width: 0, pointerEvents: 'none' }}
+                tabIndex={-1}
+                aria-hidden="true"
               >
                 <option value="">Select an event</option>
-                {assignments.map((assignment, idx) => (
-                  <option key={`${assignment.id}-${idx}`} value={assignment.id}>
-                    {assignment.name} - {assignment.date}
-                  </option>
+                {(assignments || []).map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
+              <EventSearchDropdown
+                assignments={assignments}
+                selectedId={verificationForm.eventId ? Number(verificationForm.eventId) : null}
+                onSelect={(id) => onEventChange(String(id))}
+                search={eventSearch}
+                setSearch={setEventSearch}
+                placeholder="Select an event"
+              />
             </div>
 
             <div>
@@ -1343,6 +1423,8 @@ const HistoryTab = ({ verifications }) => {
 
 // Participants Tab Component
 const ParticipantsTab = ({ assignments, selectedEventId, setSelectedEventId, eventParticipants, verifiedParticipantIds }) => {
+  const [eventSearch, setEventSearch] = useState('');
+
   if (assignments.length === 0) {
     return (
       <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
@@ -1362,18 +1444,14 @@ const ParticipantsTab = ({ assignments, selectedEventId, setSelectedEventId, eve
       {/* Event Selector */}
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Select Event</h3>
-        <select
-          value={selectedEventId || ''}
-          onChange={(e) => setSelectedEventId(Number(e.target.value) || null)}
-          className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Choose an event to view participants</option>
-          {assignments.map((assignment) => (
-            <option key={assignment.id} value={assignment.id}>
-              {assignment.name} - {assignment.date}
-            </option>
-          ))}
-        </select>
+        <EventSearchDropdown
+          assignments={assignments}
+          selectedId={selectedEventId}
+          onSelect={(id) => setSelectedEventId(Number(id) || null)}
+          search={eventSearch}
+          setSearch={setEventSearch}
+          placeholder="Choose an event to view participants"
+        />
       </div>
 
       {/* Participants List */}
